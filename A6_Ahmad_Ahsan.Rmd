@@ -1,0 +1,175 @@
+---
+title: "Clustering and Association Rule Mining"
+author: "Ahsan Ahmad"
+date: "April 21, 2024"
+output: 
+  html_document:
+    number_sections: yes
+    toc: yes
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, error = FALSE, warning = FALSE)
+```
+
+# Libraries
+
+```{r library}
+library(tidyverse)
+library(ggplot2)
+library(psych)
+library(caret)
+library(rminer)
+library(rmarkdown)
+library(matrixStats)
+library(knitr)
+library(rpart)
+library(RWeka)
+library(kernlab)
+library(arules)
+library(arulesViz)
+library(C50)
+```
+
+
+# Load packages, prepare and inspect the data
+
+Before proceeding with the analysis, it's essential to set up the working directory and import the data from a CSV file named 'Walmart_visits_7trips.csv'. This code chunk also computes the correlation matrix and displays correlations of selected numeric variables using the cor function and pairs.panels from the psych package. Finally, it builds a C5.0 decision tree with TripType as the target variable, prunes the tree, plots the tree, and shows a summary of the model including rules and confusion matrix.
+
+```{r Set up, data import and inspection}
+
+# Setting up working directory and importing data from a csv file
+
+cloud_wd <- getwd()
+setwd(cloud_wd)
+
+Walmart_visits <- read.csv(file = "Walmart_visits_7trips.csv", stringsAsFactors = FALSE)
+
+# Looking at the structure and summary of the data and transforming variables into factors
+
+str(Walmart_visits)
+
+Walmart_visits <- Walmart_visits %>% 
+  mutate(TripType = factor(TripType),
+         DOW = factor(DOW))
+
+summary(Walmart_visits)
+
+# Using cor and pairs.panels to compute correlation matrix and display correlations of the listed numeric variables
+
+Walmart_visits %>% select(UniqueItems, TotalQty, RtrnQty, NetQty, UniqDepts, OneItemDepts, RtrnDepts) %>% cor()
+Walmart_visits %>% select(UniqueItems, TotalQty, RtrnQty, NetQty, UniqDepts, OneItemDepts, RtrnDepts) %>% pairs.panels()
+
+# Building a C5.0 decision tree with TripType as the target variable
+
+decision_tree_model <- C5.0(formula = TripType ~ .,data = Walmart_visits, control = C5.0Control(CF = 0.05, earlyStopping = FALSE, noGlobalPruning = FALSE))
+decision_tree_model
+plot(decision_tree_model)
+summary(decision_tree_model)
+
+
+```
+
+# Use SimpleKMeans clustering  to understand visits
+
+This R code chunk performs k-means clustering on the Walmart_visits data using the SimpleKMeans function. It first saves the number of unique TripType levels and removes the TripType variable from the input data. Then, it generates clusters with default parameters. Next, it demonstrates different variations of k-means clustering by changing the initial assignment method, distance function, and the number of clusters. Each model's results are displayed to compare the clustering solutions.
+
+```{r SimpleKMeans Clustering}
+
+# Saving TripType as TripType.levels and removing it from the input data
+
+TripType.levels <- length(unique(Walmart_visits$TripType))
+Walmart_visits <- Walmart_visits %>% 
+  select(-TripType)
+
+# Generating clusters with default parameters
+
+kmeans1 <- SimpleKMeans(Walmart_visits, Weka_control(N=TripType.levels, init = 0, V=TRUE))
+kmeans1
+
+# Changing the initial assignment to Kmeans++ 
+
+kmeans2 <- SimpleKMeans(Walmart_visits, Weka_control(N=TripType.levels, init = 1, V=TRUE))
+kmeans2
+
+# Changing the initial assignment to Kmeans++ and the distance function to weka.core.ManhattanDistance 
+
+kmeans3 <- SimpleKMeans(Walmart_visits, Weka_control(N=TripType.levels, init = 1, V=TRUE, A = "weka.core.ManhattanDistance"))
+kmeans3
+
+# Changing distance to Euclidean and Kmeans++ as initial assignment method and decreasing the clusters to 5
+
+kmeans4 <- SimpleKMeans(Walmart_visits, Weka_control(N=5, init = 1, V=TRUE, A = "weka.core.EuclideanDistance"))
+kmeans4
+
+```
+
+
+# Market Basket Analysis with the Walmart dept baskets
+
+This R code chunk imports transaction data from "Walmart_baskets_1week.csv" and saves it as a sparse matrix. It inspects the first 15 transactions and plots the most frequent 15 items in descending order of transaction frequency. Initially, the apriori() function is used with default parameters, but it produces zero rules. Parameters are then adjusted to increase support and decrease confidence to generate about 50 to 100 association rules, resulting in 78 rules. Further adjustment of parameters yields 153 rules, which are displayed in descending order of lift. The code demonstrates the impact of changing support and confidence on the number of association rules generated.
+
+```{r Association Rule Mining}
+
+# Importing data and saving it in a sparse matrix
+
+Dept_baskets <- read.transactions("Walmart_baskets_1week.csv", format="single", sep = ",", header = TRUE, cols=c("VisitNumber","DepartmentDescription"))
+
+# Inspecting the first 15 transactions
+
+inspect(Dept_baskets[0:15])
+
+# Plotting the most frequent 15 items in the descending order of transaction frequency in percentage
+
+sort(itemFrequency(Dept_baskets, type = "absolute"), decreasing = TRUE)
+
+itemFrequencyPlot(Dept_baskets,topN = 15,type='relative')
+
+# Using the apriori command with default parameter values i.e. confidence = 0.8, support = 0.1 and minlen = 1
+
+rules_default <- apriori(Dept_baskets)
+rules_default
+
+# As the default produces 0 rules, we will need to change the parameters from default, using confidence = 0.1 and support = 0.01 with minlen = 2
+
+rules1 <- apriori(Dept_baskets,parameter = list(support = 0.01, confidence = 0.1, minlen = 2))
+rules1
+
+# rules1 gives us a set of 3195 rules from 2000 transactions so we will have to increase the support and confidence to generate about 50 to 100 association rules
+
+rules2 <- apriori(Dept_baskets,parameter = list(support = 0.05, confidence = 0.25, minlen = 2))
+rules2
+
+# It seems like changing the confidence doesn't effect the number of association rules much while changing the support has a high and rapid effect on the number of rules, with the above model we get 78 rules
+
+# Showing the rules in descending order
+
+inspect(sort(rules2, by = "lift"))
+
+# Using the apriori command now to generate between 100 to 200 association rules
+
+rules3 <- apriori(Dept_baskets,parameter = list(support = 0.04, confidence = 0.15, minlen = 2))
+rules3
+
+# Using the above model parameters we get a set of 153 rules
+
+# Showing the rules in descending order
+
+inspect(sort(rules3, by = "lift"))
+
+
+```
+
+
+# Reflections
+
+1. What were the minimum support level and the minimum confidence level you selected for the Association Rule Mining tasks? Given these levels, What is the rule with the highest lift given your final choices of these levels? What is the rule with the highest support level? What is the rule with the highest confidence level? Which rule out of these three (or fewer) do you recommend for sales executives to consider? What is the reason for your recommendation?
+
+The minimum support level were 0.05 to get set of rules between 50 to 100 and 0.04 to get rules between 100 to 200. The confidence level used were 0.25 and 0.15 respectively. Although, it was seen that changing the support level had a dramatic effect on the set of rules while changing the confidence level had a little effect. The rule with the highest lift was rules3 which had a set of rules between 100 and 200. Rule with the highest confidence level was rule2 with set of rules in between 50 and 100. I would like to recommend rules2 to the customer with 78 set of rules as the number of transactions amount to 2000 hence this way the set of rules seems a bit realistic as compare to other two rules.
+
+2.What have you learned from building each of these models and the modeling impact of your adjustments to the hyperparameters or dataset? What can you say about the clusters that were formed? Is there anything interesting to point out? Recall clustering is often used to discover latent (hidden) information. What have you discovered? Make sure to discuss the association rule mining results as well. 
+
+It was seen that the number of iterations and the within cluster sum of squared errors was the lowest with the default clustering model suggesting that the clusters were more compact. Using k-means++ as initiation method increased the within cluster sum of squared errors creating more evenly distributed clusters. Decreasing the value of N -> Number of clusters made it more interpretable with clear separation between days of week and visit characteristics. Models with k-means++ had similar days as it's clusters mostly showing some sort of grouping pattern. For Associate rule mining it can be seen that support level was the most vital parameter in this case and tweaking it can change the set of rules with a certain range afterwards, we can tweak the confidence level to reach the desired number.I think this is mostly because support is used in the phase 1 of the apriori algorithm so it has more effect on the set of rules created. 
+
