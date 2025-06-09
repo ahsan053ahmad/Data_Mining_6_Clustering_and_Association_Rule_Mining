@@ -4,7 +4,7 @@ This repository contains an R Markdown assignment that explores two unsupervised
 
 ---
 
-### 🧩 Business Problem
+### Business Problem
 
 Many organizations collect large volumes of data without predefined labels or categories. In such scenarios, **unsupervised learning** techniques—such as clustering and association rule mining—can reveal structure, segment customers or products, and uncover actionable patterns.
 
@@ -12,7 +12,7 @@ This assignment demonstrates how clustering can identify natural groupings in da
 
 ---
 
-### 🎯 Project Objective
+### Project Objective
 
 This assignment was structured around two main goals:
 
@@ -28,7 +28,7 @@ This assignment was structured around two main goals:
 
 ---
 
-### 🛠️ Solution Approach
+### Solution Approach
 
 The project followed a systematic unsupervised learning pipeline:
 
@@ -44,7 +44,7 @@ The project followed a systematic unsupervised learning pipeline:
 
 ---
 
-### 💡 Business Value
+### Business Value
 
 These techniques have direct applications across industries:
 
@@ -62,7 +62,7 @@ They help businesses uncover hidden insights, segment their markets, and make da
 
 ---
 
-### 🚧 Challenges Encountered
+### Challenges Encountered
 
 - **Choosing the Right Number of Clusters**: Required exploration of WCSS and domain knowledge to interpret results meaningfully.
 - **Sparse Transactional Data**: Needed careful preprocessing and pruning to generate actionable rules.
